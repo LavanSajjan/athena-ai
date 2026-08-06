@@ -176,4 +176,4 @@ testpaths = [
 
 python_files = [
     "test_*.py",
-]uv sync --group runtime --group dev
+]
