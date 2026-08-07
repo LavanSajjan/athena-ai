@@ -160,6 +160,8 @@ python_version = "3.12"
 
 strict = true
 
+explicit_package_bases = true
+
 ignore_missing_imports = true
 
 warn_unused_configs = true
@@ -176,4 +178,8 @@ testpaths = [
 
 python_files = [
     "test_*.py",
+]
+
+pythonpath = [
+    ".",
 ]

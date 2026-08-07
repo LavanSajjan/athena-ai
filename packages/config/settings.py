@@ -3,6 +3,7 @@ Application settings.
 """
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,6 +11,7 @@ from packages.shared.constants import (
     APP_DESCRIPTION,
     APP_NAME,
     APP_VERSION,
+    DEFAULT_STORAGE_ROOT,
     HOST,
     LOG_LEVEL,
     PORT,
@@ -27,6 +29,8 @@ class Settings(BaseSettings):
     port: int = PORT
 
     log_level: str = LOG_LEVEL
+
+    storage_root: Path = Path(DEFAULT_STORAGE_ROOT)
 
     model_config = SettingsConfigDict(
         env_file=".env",

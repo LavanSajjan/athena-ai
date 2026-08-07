@@ -15,6 +15,8 @@ PORT: Final = 8000
 
 LOG_LEVEL: Final = "INFO"
 
+DEFAULT_STORAGE_ROOT: Final = "datasets"
+
 DOCS_URL: Final = "/docs"
 REDOC_URL: Final = "/redoc"
 OPENAPI_URL: Final = "/openapi.json"
