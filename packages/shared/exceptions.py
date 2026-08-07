@@ -11,3 +11,7 @@ class InvalidStorageReferenceError(ValueError):
 
 class DatasetNotFoundError(LookupError):
     """Raised when a requested dataset is absent from the registry."""
+
+
+class CSVLoadError(ValueError):
+    """Raised when CSV content or CSV loader options cannot be parsed."""
