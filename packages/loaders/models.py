@@ -21,8 +21,8 @@ class CSVLoadOptions:
 
 
 @dataclass(frozen=True, slots=True)
-class CSVLoadResult:
-    """Parsed CSV data and metadata describing its storage source."""
+class TabularLoadResult:
+    """Parsed tabular data and metadata describing its storage source."""
 
     asset: StorageAsset
     dataframe: pl.DataFrame
@@ -30,3 +30,18 @@ class CSVLoadResult:
     column_count: int
     column_names: list[str]
     estimated_size_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class CSVLoadResult(TabularLoadResult):
+    """Backward-compatible result type returned by :class:`CSVLoader`."""
+
+
+@dataclass(frozen=True, slots=True)
+class ExcelLoadOptions:
+    """Configuration applied when parsing an Excel worksheet with Polars."""
+
+    worksheet: str | int | None = None
+    has_header: bool = True
+    schema_overrides: Mapping[str, pl.DataType | type[pl.DataType]] | None = None
+    infer_schema_length: int | None = 100

@@ -15,3 +15,11 @@ class DatasetNotFoundError(LookupError):
 
 class CSVLoadError(ValueError):
     """Raised when CSV content or CSV loader options cannot be parsed."""
+
+
+class ExcelLoadError(ValueError):
+    """Raised when Excel content or Excel loader options cannot be parsed."""
+
+
+class QueryExecutionError(ValueError):
+    """Raised when a query engine cannot execute a SQL statement."""
