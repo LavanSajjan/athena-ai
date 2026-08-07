@@ -26,7 +26,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install Dependencies
-        run: uv sync --group dev
+        run: uv sync --all-groups
 
       - name: Ruff
         run: uv run ruff check .
