@@ -31,16 +31,68 @@ jobs:
       - name: Install Dependencies
         run: uv sync --all-groups
 
-      - name: Show Python Environment
+      - name: Debug Environment
         run: |
+          echo "========================"
+          echo "Working Directory"
+          echo "========================"
           pwd
+
+          echo ""
+          echo "========================"
+          echo "Repository Contents"
+          echo "========================"
           ls -la
-          uv run python -c "import sys; print(sys.path)"
+
+          echo ""
+          echo "========================"
+          echo "packages/"
+          echo "========================"
+          ls -la packages
+
+          echo ""
+          echo "========================"
+          echo "packages/__init__.py"
+          echo "========================"
+          ls -la packages/__init__.py
+
+          echo ""
+          echo "========================"
+          echo "Python Version"
+          echo "========================"
+          uv run python --version
+
+          echo ""
+          echo "========================"
+          echo "Python Search Path"
+          echo "========================"
+          uv run python -c "import sys; print('\n'.join(sys.path))"
+
+          echo ""
+          echo "========================"
+          echo "Installed Packages"
+          echo "========================"
+          uv pip list
 
       - name: Verify Package Imports
         run: |
-          uv run python -c "import packages; print('packages imported successfully')"
-          uv run python -c "from packages.loaders.csv import CSVLoader; print('CSVLoader OK')"
+          echo "========================"
+          echo "Import packages"
+          echo "========================"
+          uv run python -c "import packages; print(packages)"
+          uv run python -c "import packages; print(packages.__file__)"
+
+          echo ""
+          echo "========================"
+          echo "Import CSV Loader"
+          echo "========================"
+          uv run python -c "from packages.loaders.csv import CSVLoader; print(CSVLoader)"
+
+          echo ""
+          echo "========================"
+          echo "Import Storage Provider"
+          echo "========================"
+          uv run python -c "from packages.storage.blob.local import LocalStorageProvider; print(LocalStorageProvider)"
 
       - name: Ruff
         run: uv run ruff check .
