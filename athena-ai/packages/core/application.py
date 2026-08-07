@@ -2,7 +2,6 @@ from fastapi import FastAPI
 
 from apps.api.lifespan import lifespan
 from apps.api.routes.v1.system import router as system_router
-
 from packages.config.settings import get_settings
 from packages.observability.logging import configure_logging
 

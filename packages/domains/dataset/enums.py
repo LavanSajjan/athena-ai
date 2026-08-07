@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class DatasetStatus(str, Enum):
+class DatasetStatus(StrEnum):
     """Lifecycle state of a dataset."""
 
     NEW = "new"
