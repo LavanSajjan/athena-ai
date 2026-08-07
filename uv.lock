@@ -13,50 +13,6 @@ resolution-markers = [
     "python_full_version < '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
-[manifest]
-
-[manifest.dependency-groups]
-ai = [
-    { name = "anthropic" },
-    { name = "google-genai" },
-    { name = "langchain" },
-    { name = "langgraph" },
-    { name = "openai" },
-]
-database = [
-    { name = "duckdb" },
-    { name = "psycopg", extras = ["binary"] },
-    { name = "pymssql" },
-    { name = "snowflake-connector-python" },
-    { name = "sqlalchemy" },
-]
-dev = [
-    { name = "mypy", specifier = ">=1.17.1" },
-    { name = "pre-commit", specifier = ">=4.3.0" },
-    { name = "pytest", specifier = ">=8.4.1" },
-    { name = "pytest-asyncio", specifier = ">=1.1.0" },
-    { name = "pytest-cov", specifier = ">=7.0.0" },
-    { name = "ruff", specifier = ">=0.12.9" },
-]
-runtime = [
-    { name = "duckdb", specifier = ">=1.5.5" },
-    { name = "fastapi", specifier = ">=0.116.1" },
-    { name = "fastexcel", specifier = ">=0.17.0" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "loguru", specifier = ">=0.7.3" },
-    { name = "numpy", specifier = ">=2.3.2" },
-    { name = "pandas", specifier = ">=2.3.2" },
-    { name = "plotly", specifier = ">=6.3.0" },
-    { name = "polars", specifier = ">=1.32.3" },
-    { name = "pydantic", specifier = ">=2.11.7" },
-    { name = "pydantic-settings", specifier = ">=2.10.1" },
-    { name = "python-dotenv", specifier = ">=1.1.1" },
-    { name = "rich", specifier = ">=14.1.0" },
-    { name = "streamlit", specifier = ">=1.49.0" },
-    { name = "typer", specifier = ">=0.17.4" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.35.0" },
-]
-
 [[package]]
 name = "altair"
 version = "6.2.2"
@@ -194,6 +150,97 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/aa/fc/c862cc8d4d8d749f360035baa245fb3098b8b934c57122c0222ac5078762/ast_serialize-0.7.0-cp39-abi3-win32.whl", hash = "sha256:e818854e8521846f5a5271b1488c490231b8b6e02d0158ec42e57bc06dd764f0", size = 1068874, upload-time = "2026-08-06T14:07:33.895Z" },
     { url = "https://files.pythonhosted.org/packages/92/33/e846301850c18fa31598e342bb80b32f380c1bce285df571f5c3711960ff/ast_serialize-0.7.0-cp39-abi3-win_amd64.whl", hash = "sha256:942921b81440d3ea57f90370d5d29bf28dc81c0778e26b736013e83c7b258023", size = 1111845, upload-time = "2026-08-06T14:07:35.308Z" },
     { url = "https://files.pythonhosted.org/packages/6d/8c/4ee99be6306e72fac6051461794e5cd7895bbbdafe5b921a9a8c4b6fde1c/ast_serialize-0.7.0-cp39-abi3-win_arm64.whl", hash = "sha256:43b73cf3924aa49f241be6e5f6a19943c8e2e07a2786fc719cacaa54ac6fd2d5", size = 1083656, upload-time = "2026-08-06T14:07:36.828Z" },
+]
+
+[[package]]
+name = "athena-ai"
+version = "0.4.0a0"
+source = { virtual = "." }
+
+[package.dev-dependencies]
+ai = [
+    { name = "anthropic" },
+    { name = "google-genai" },
+    { name = "langchain" },
+    { name = "langgraph" },
+    { name = "openai" },
+]
+database = [
+    { name = "duckdb" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "pymssql" },
+    { name = "snowflake-connector-python" },
+    { name = "sqlalchemy" },
+]
+dev = [
+    { name = "mypy" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+runtime = [
+    { name = "duckdb" },
+    { name = "fastapi" },
+    { name = "fastexcel" },
+    { name = "httpx" },
+    { name = "loguru" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "plotly" },
+    { name = "polars" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "python-dotenv" },
+    { name = "rich" },
+    { name = "streamlit" },
+    { name = "typer" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+ai = [
+    { name = "anthropic" },
+    { name = "google-genai" },
+    { name = "langchain" },
+    { name = "langgraph" },
+    { name = "openai" },
+]
+database = [
+    { name = "duckdb" },
+    { name = "psycopg", extras = ["binary"] },
+    { name = "pymssql" },
+    { name = "snowflake-connector-python" },
+    { name = "sqlalchemy" },
+]
+dev = [
+    { name = "mypy", specifier = ">=1.17.1" },
+    { name = "pre-commit", specifier = ">=4.3.0" },
+    { name = "pytest", specifier = ">=8.4.1" },
+    { name = "pytest-asyncio", specifier = ">=1.1.0" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "ruff", specifier = ">=0.12.9" },
+]
+runtime = [
+    { name = "duckdb", specifier = ">=1.5.5" },
+    { name = "fastapi", specifier = ">=0.116.1" },
+    { name = "fastexcel", specifier = ">=0.17.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "numpy", specifier = ">=2.3.2" },
+    { name = "pandas", specifier = ">=2.3.2" },
+    { name = "plotly", specifier = ">=6.3.0" },
+    { name = "polars", specifier = ">=1.32.3" },
+    { name = "pydantic", specifier = ">=2.11.7" },
+    { name = "pydantic-settings", specifier = ">=2.10.1" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
+    { name = "rich", specifier = ">=14.1.0" },
+    { name = "streamlit", specifier = ">=1.49.0" },
+    { name = "typer", specifier = ">=0.17.4" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.35.0" },
 ]
 
 [[package]]

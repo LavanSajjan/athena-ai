@@ -7,6 +7,11 @@
 # It is an application workspace managed by uv.
 ################################################################################
 
+[project]
+name = "athena-ai"
+version = "0.4.0-alpha"
+requires-python = ">=3.12"
+
 [tool.uv]
 
 package = false
@@ -167,6 +172,12 @@ explicit_package_bases = true
 ignore_missing_imports = true
 
 warn_unused_configs = true
+
+files = [
+    "apps",
+    "packages",
+    "tests",
+]
 
 ################################################################################
 # Pytest

@@ -11,11 +11,9 @@ on:
 
 jobs:
   quality:
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -34,7 +32,7 @@ jobs:
         run: uv run ruff check .
 
       - name: MyPy
-        run: uv run mypy .
+        run: uv run mypy apps packages tests
 
       - name: Pytest
         run: uv run pytest

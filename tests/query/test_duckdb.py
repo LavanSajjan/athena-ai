@@ -29,7 +29,7 @@ def _dataset(dataframe: pl.DataFrame) -> TabularLoadResult:
         row_count=dataframe.height,
         column_count=dataframe.width,
         column_names=dataframe.columns,
-        estimated_size_bytes=dataframe.estimated_size(),
+        estimated_size_bytes=int(dataframe.estimated_size()),
     )
 
 

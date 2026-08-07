@@ -13,7 +13,8 @@ settings = get_settings()
 
 
 @router.get("/", response_model=RootResponse)
-async def root():
+async def root() -> RootResponse:
+    """Return application metadata."""
     return RootResponse(
         name=settings.app_name,
         description=settings.app_description,
@@ -22,10 +23,12 @@ async def root():
 
 
 @router.get("/health", response_model=HealthResponse)
-async def health():
+async def health() -> HealthResponse:
+    """Return application health status."""
     return HealthResponse(status="healthy")
 
 
 @router.get("/version", response_model=VersionResponse)
-async def version():
+async def version() -> VersionResponse:
+    """Return the running application version."""
     return VersionResponse(version=settings.app_version)
