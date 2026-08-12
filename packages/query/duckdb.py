@@ -19,7 +19,10 @@ class DuckDBQueryEngine(QueryEngine):
             raise QueryExecutionError("SQL text must not be empty.")
 
         try:
-            with duckdb.connect(database=":memory:") as connection:
+            with duckdb.connect(
+                database=":memory:",
+                config={"enable_external_access": "false"},
+            ) as connection:
                 connection.register("dataset", dataset.dataframe)
                 started_at = perf_counter()
                 dataframe = connection.execute(sql).pl()

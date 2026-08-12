@@ -1,6 +1,7 @@
 """Tests for the provider-independent in-memory DuckDB query engine."""
 
 from dataclasses import FrozenInstanceError
+from pathlib import Path
 
 import duckdb
 import polars as pl
@@ -86,6 +87,21 @@ def test_execute_wraps_duckdb_errors(sql: str) -> None:
 
     with pytest.raises(QueryExecutionError) as error:
         DuckDBQueryEngine().execute(dataset, sql)
+
+    assert isinstance(error.value.__cause__, duckdb.Error)
+
+
+def test_execute_rejects_external_resource_access(tmp_path: Path) -> None:
+    """External DuckDB table functions must not bypass the loaded dataset boundary."""
+    resource_path = tmp_path / "external.csv"
+    resource_path.write_text("id\n99\n", encoding="utf-8")
+    dataset = _dataset(pl.DataFrame({"id": [1]}))
+
+    with pytest.raises(QueryExecutionError) as error:
+        DuckDBQueryEngine().execute(
+            dataset,
+            f"SELECT * FROM read_csv_auto('{resource_path.as_posix()}')",
+        )
 
     assert isinstance(error.value.__cause__, duckdb.Error)
 
