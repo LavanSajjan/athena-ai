@@ -1,7 +1,11 @@
 """Tests for the dataset REST API."""
 
+# ruff: noqa: E501
+
 from collections.abc import Iterator
+from io import BytesIO
 from pathlib import Path
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,6 +13,7 @@ from fastapi.testclient import TestClient
 from packages.core.application import create_application
 from packages.domains.dataset.service import DatasetService
 from packages.services.dataset_profiling_service import DatasetProfilingService
+from packages.services.dataset_query_service import DatasetQueryService
 from packages.storage.blob.local import LocalStorageProvider
 
 
@@ -25,9 +30,59 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
         dataset_service,
         storage_provider,
     )
+    app.state.dataset_query_service = DatasetQueryService(
+        dataset_service,
+        storage_provider,
+    )
 
     with TestClient(app) as test_client:
         yield test_client
+
+
+def _workbook() -> bytes:
+    """Create a minimal XLSX workbook with one sales worksheet."""
+    contents = BytesIO()
+    with ZipFile(contents, "w", ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>""",
+        )
+        archive.writestr(
+            "_rels/.rels",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>""",
+        )
+        archive.writestr(
+            "xl/workbook.xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets><sheet name="Sales" sheetId="1" r:id="rId1"/></sheets>
+</workbook>""",
+        )
+        archive.writestr(
+            "xl/_rels/workbook.xml.rels",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>""",
+        )
+        archive.writestr(
+            "xl/worksheets/sheet1.xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>
+<row r="1"><c r="A1" t="inlineStr"><is><t>region</t></is></c><c r="B1" t="inlineStr"><is><t>revenue</t></is></c></row>
+<row r="2"><c r="A2" t="inlineStr"><is><t>West</t></is></c><c r="B2"><v>42</v></c></row>
+</sheetData></worksheet>""",
+        )
+    return contents.getvalue()
 
 
 def test_register_dataset_returns_registered_dataset(client: TestClient, tmp_path: Path) -> None:
@@ -189,6 +244,140 @@ def test_profile_unsupported_format_returns_unprocessable_entity(
     registration = client.post("/api/v1/datasets", json={"reference": "sample/records.json"})
 
     response = client.post(f"/api/v1/datasets/{registration.json()['id']}/profile")
+
+    assert registration.status_code == 201
+    assert response.status_code == 422
+
+
+def test_query_dataset_uses_shared_registry_retained_reference_and_serializes_result(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    """Querying a registered CSV reloads its opaque reference through the shared service."""
+    storage_root = tmp_path / "datasets"
+    asset_path = storage_root / "sample" / "sales.csv"
+    asset_path.parent.mkdir()
+    asset_path.write_bytes(b"region,revenue\nWest,12\nEast,8\nWest,20\n")
+    reference = "sample/../sample/sales.csv"
+
+    registration = client.post("/api/v1/datasets", json={"reference": reference})
+    response = client.post(
+        f"/api/v1/datasets/{registration.json()['id']}/query",
+        json={
+            "sql": "SELECT region, SUM(revenue) AS total FROM dataset "
+            "GROUP BY region ORDER BY region"
+        },
+    )
+
+    assert registration.status_code == 201
+    assert response.status_code == 200
+    assert response.json()["sql"] == (
+        "SELECT region, SUM(revenue) AS total FROM dataset GROUP BY region ORDER BY region"
+    )
+    assert response.json()["rows"] == [
+        {"region": "East", "total": "8"},
+        {"region": "West", "total": "32"},
+    ]
+    assert response.json()["row_count"] == 2
+    assert response.json()["column_count"] == 2
+    assert response.json()["execution_time_ms"] >= 0
+
+
+def test_query_excel_dataset_returns_rows(client: TestClient, tmp_path: Path) -> None:
+    """Querying a registered Excel workbook uses the existing Excel loader."""
+    storage_root = tmp_path / "datasets"
+    asset_path = storage_root / "sample" / "sales.xlsx"
+    asset_path.parent.mkdir()
+    asset_path.write_bytes(_workbook())
+
+    registration = client.post("/api/v1/datasets", json={"reference": "sample/sales.xlsx"})
+    response = client.post(
+        f"/api/v1/datasets/{registration.json()['id']}/query",
+        json={"sql": "SELECT * FROM dataset"},
+    )
+
+    assert registration.status_code == 201
+    assert response.status_code == 200
+    assert response.json()["rows"] == [{"region": "West", "revenue": 42}]
+
+
+def test_query_unknown_dataset_returns_not_found(client: TestClient) -> None:
+    """Querying an unknown UUID should return an HTTP 404 response."""
+    response = client.post(
+        "/api/v1/datasets/ed363fe0-82a4-4cba-851e-7b0c6f1d5c06/query",
+        json={"sql": "SELECT * FROM dataset"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_query_missing_registered_asset_returns_not_found(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    """Querying should surface a source asset deleted after registration."""
+    storage_root = tmp_path / "datasets"
+    asset_path = storage_root / "sample" / "sales.csv"
+    asset_path.parent.mkdir()
+    asset_path.write_bytes(b"id\n1\n")
+    registration = client.post("/api/v1/datasets", json={"reference": "sample/sales.csv"})
+    asset_path.unlink()
+
+    response = client.post(
+        f"/api/v1/datasets/{registration.json()['id']}/query",
+        json={"sql": "SELECT * FROM dataset"},
+    )
+
+    assert registration.status_code == 201
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize("sql", ["  \n", "DELETE FROM dataset", "SELECT * FROM dataset;"])
+def test_query_rejects_non_read_only_sql(client: TestClient, sql: str) -> None:
+    """The public query endpoint should enforce its narrow SELECT-only policy."""
+    response = client.post(
+        "/api/v1/datasets/ed363fe0-82a4-4cba-851e-7b0c6f1d5c06/query",
+        json={"sql": sql},
+    )
+
+    assert response.status_code == 422
+
+
+def test_query_invalid_select_returns_unprocessable_entity(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    """DuckDB query failures should be exposed as HTTP 422 responses."""
+    storage_root = tmp_path / "datasets"
+    asset_path = storage_root / "sample" / "sales.csv"
+    asset_path.parent.mkdir()
+    asset_path.write_bytes(b"id\n1\n")
+    registration = client.post("/api/v1/datasets", json={"reference": "sample/sales.csv"})
+
+    response = client.post(
+        f"/api/v1/datasets/{registration.json()['id']}/query",
+        json={"sql": "SELECT missing FROM dataset"},
+    )
+
+    assert registration.status_code == 201
+    assert response.status_code == 422
+
+
+def test_query_unsupported_format_returns_unprocessable_entity(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    """Querying a registered unsupported format should return HTTP 422."""
+    storage_root = tmp_path / "datasets"
+    asset_path = storage_root / "sample" / "records.json"
+    asset_path.parent.mkdir()
+    asset_path.write_bytes(b"[]")
+    registration = client.post("/api/v1/datasets", json={"reference": "sample/records.json"})
+
+    response = client.post(
+        f"/api/v1/datasets/{registration.json()['id']}/query",
+        json={"sql": "SELECT * FROM dataset"},
+    )
 
     assert registration.status_code == 201
     assert response.status_code == 422
