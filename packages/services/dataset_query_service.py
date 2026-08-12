@@ -11,7 +11,11 @@ from packages.loaders.excel import ExcelLoader
 from packages.loaders.models import TabularLoadResult
 from packages.query.duckdb import DuckDBQueryEngine
 from packages.query.models import QueryResult
-from packages.shared.exceptions import QueryExecutionError, UnsupportedDatasetFormatError
+from packages.shared.exceptions import (
+    QueryExecutionError,
+    QueryResourceLimitError,
+    UnsupportedDatasetFormatError,
+)
 
 
 class DatasetQueryService:
@@ -22,16 +26,23 @@ class DatasetQueryService:
         dataset_service: DatasetService,
         storage_provider: StorageProvider,
         query_engine: QueryEngine | None = None,
+        max_rows: int = 10_000,
     ) -> None:
         self.dataset_service = dataset_service
         self.storage_provider = storage_provider
         self.query_engine = query_engine or DuckDBQueryEngine()
+        self.max_rows = max_rows
 
     def query(self, dataset_id: UUID, sql: str) -> QueryResult:
         """Load the dataset identified by ``dataset_id`` and execute ``sql``."""
         self._validate_sql(sql)
         dataset = self.dataset_service.get(dataset_id)
-        return self.query_engine.execute(self._load(dataset), sql)
+        result = self.query_engine.execute(self._load(dataset), sql)
+        if result.row_count > self.max_rows:
+            raise QueryResourceLimitError(
+                f"Query result exceeds the configured maximum of {self.max_rows} rows."
+            )
+        return result
 
     def _load(self, dataset: Dataset) -> TabularLoadResult:
         """Load a dataset with the supported loader for its source type."""

@@ -351,6 +351,49 @@ def test_query_dataset_uses_shared_registry_retained_reference_and_serializes_re
     assert response.json()["execution_time_ms"] >= 0
 
 
+def test_query_dataset_allows_result_at_public_row_limit(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    """The public query API should accept a result exactly at its configured row limit."""
+    storage_root = tmp_path / "datasets"
+    asset_path = storage_root / "sample" / "limit.csv"
+    asset_path.parent.mkdir()
+    asset_path.write_bytes(b"id\n" + b"1\n" * 10_000)
+    registration = client.post("/api/v1/datasets", json={"reference": "sample/limit.csv"})
+
+    response = client.post(
+        f"/api/v1/datasets/{registration.json()['id']}/query",
+        json={"sql": "SELECT * FROM dataset"},
+    )
+
+    assert registration.status_code == 201
+    assert response.status_code == 200
+    assert response.json()["row_count"] == 10_000
+    assert len(response.json()["rows"]) == 10_000
+
+
+def test_query_dataset_rejects_result_above_public_row_limit(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    """The public query API must reject rather than truncate an oversized result."""
+    storage_root = tmp_path / "datasets"
+    asset_path = storage_root / "sample" / "over-limit.csv"
+    asset_path.parent.mkdir()
+    asset_path.write_bytes(b"id\n" + b"1\n" * 10_001)
+    registration = client.post("/api/v1/datasets", json={"reference": "sample/over-limit.csv"})
+
+    response = client.post(
+        f"/api/v1/datasets/{registration.json()['id']}/query",
+        json={"sql": "SELECT * FROM dataset"},
+    )
+
+    assert registration.status_code == 201
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Query result exceeds the configured maximum of 10000 rows."
+
+
 def test_query_excel_dataset_returns_rows(client: TestClient, tmp_path: Path) -> None:
     """Querying a registered Excel workbook uses the existing Excel loader."""
     storage_root = tmp_path / "datasets"

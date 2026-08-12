@@ -5,6 +5,7 @@ Application settings.
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from packages.shared.constants import (
@@ -33,6 +34,10 @@ class Settings(BaseSettings):
     storage_root: Path = Path(DEFAULT_STORAGE_ROOT)
 
     dataset_catalog_path: Path = Path("data/athena.sqlite3")
+
+    dataset_query_memory_limit: str = "512MB"
+    dataset_query_timeout_seconds: float = Field(default=30.0, gt=0)
+    dataset_query_max_rows: int = Field(default=10_000, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",

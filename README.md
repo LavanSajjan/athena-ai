@@ -142,6 +142,9 @@ storage root.
 | `LOG_LEVEL` | `INFO` | Configured log level |
 | `STORAGE_ROOT` | `datasets` | Root directory for local storage assets |
 | `DATASET_CATALOG_PATH` | `data/athena.sqlite3` | Durable SQLite dataset catalog |
+| `DATASET_QUERY_MEMORY_LIMIT` | `512MB` | DuckDB memory budget per query connection |
+| `DATASET_QUERY_TIMEOUT_SECONDS` | `30` | Maximum query execution time in seconds |
+| `DATASET_QUERY_MAX_ROWS` | `10000` | Maximum rows returned by the public query API |
 
 Environment-variable names are case-insensitive. Unknown variables are ignored.
 

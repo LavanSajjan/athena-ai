@@ -7,6 +7,7 @@ from packages.config.settings import get_settings
 from packages.domains.dataset.service import DatasetService
 from packages.observability.logging import configure_logging
 from packages.persistence.sqlite_dataset_repository import SQLiteDatasetRepository
+from packages.query.duckdb import DuckDBQueryEngine
 from packages.services.dataset_profiling_service import DatasetProfilingService
 from packages.services.dataset_query_service import DatasetQueryService
 from packages.storage.blob.local import LocalStorageProvider
@@ -40,6 +41,11 @@ def create_application() -> FastAPI:
     app.state.dataset_query_service = DatasetQueryService(
         dataset_service=dataset_service,
         storage_provider=storage_provider,
+        query_engine=DuckDBQueryEngine(
+            memory_limit=settings.dataset_query_memory_limit,
+            timeout_seconds=settings.dataset_query_timeout_seconds,
+        ),
+        max_rows=settings.dataset_query_max_rows,
     )
 
     app.include_router(system_router)
