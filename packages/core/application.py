@@ -6,6 +6,7 @@ from apps.api.routes.v1.system import router as system_router
 from packages.config.settings import get_settings
 from packages.domains.dataset.service import DatasetService
 from packages.observability.logging import configure_logging
+from packages.persistence.sqlite_dataset_repository import SQLiteDatasetRepository
 from packages.services.dataset_profiling_service import DatasetProfilingService
 from packages.services.dataset_query_service import DatasetQueryService
 from packages.storage.blob.local import LocalStorageProvider
@@ -24,7 +25,13 @@ def create_application() -> FastAPI:
     )
 
     storage_provider = LocalStorageProvider(settings.storage_root)
-    dataset_service = DatasetService(storage_provider=storage_provider)
+    dataset_repository = SQLiteDatasetRepository(settings.dataset_catalog_path)
+    dataset_service = DatasetService(
+        storage_provider=storage_provider,
+        repository=dataset_repository,
+        provider_id="local",
+    )
+    app.state.dataset_repository = dataset_repository
     app.state.dataset_service = dataset_service
     app.state.dataset_profiling_service = DatasetProfilingService(
         dataset_service=dataset_service,

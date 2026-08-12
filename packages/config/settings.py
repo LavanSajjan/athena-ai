@@ -32,6 +32,8 @@ class Settings(BaseSettings):
 
     storage_root: Path = Path(DEFAULT_STORAGE_ROOT)
 
+    dataset_catalog_path: Path = Path("data/athena.sqlite3")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,

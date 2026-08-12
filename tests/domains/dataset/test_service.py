@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from packages.domains.dataset.enums import DatasetStatus
-from packages.domains.dataset.registry import DatasetRegistry
+from packages.domains.dataset.models import Dataset
 from packages.domains.dataset.service import DatasetService
 from packages.models.domain.storage import StorageAsset
 from packages.shared.exceptions import DatasetNotFoundError, StorageAssetNotFoundError
@@ -31,6 +31,31 @@ class FakeStorageProvider:
         return BytesIO()
 
 
+class FakeDatasetRepository:
+    """Keep datasets in memory for DatasetService unit tests."""
+
+    def __init__(self) -> None:
+        self.datasets: dict[object, Dataset] = {}
+
+    def initialize(self) -> None:
+        """Match the repository lifecycle contract."""
+
+    def close(self) -> None:
+        """Match the repository lifecycle contract."""
+
+    def add(self, dataset: Dataset) -> None:
+        """Store the dataset by its identity."""
+        self.datasets[dataset.id] = dataset
+
+    def get(self, dataset_id: object) -> Dataset | None:
+        """Return the stored dataset, if present."""
+        return self.datasets.get(dataset_id)
+
+    def list(self) -> list[Dataset]:
+        """Return inserted datasets."""
+        return list(self.datasets.values())
+
+
 def test_register_maps_storage_asset_to_dataset() -> None:
     """Registration should use metadata supplied by the storage provider."""
     asset = StorageAsset(
@@ -42,12 +67,14 @@ def test_register_maps_storage_asset_to_dataset() -> None:
         sha256="a" * 64,
     )
     provider = FakeStorageProvider(asset)
-    service = DatasetService(provider)
+    repository = FakeDatasetRepository()
+    service = DatasetService(provider, repository, provider_id="local")
 
     dataset = service.register(asset.reference)
 
     assert provider.references == [asset.reference]
     assert dataset.name == asset.name
+    assert dataset.provider_id == "local"
     assert dataset.source_type == asset.extension
     assert dataset.reference == asset.reference
     assert dataset.asset_uri == asset.uri
@@ -57,8 +84,8 @@ def test_register_maps_storage_asset_to_dataset() -> None:
     assert service.get(dataset.id) == dataset
 
 
-def test_register_uses_injected_registry() -> None:
-    """Registration should persist the created dataset in the supplied registry."""
+def test_register_uses_injected_repository() -> None:
+    """Registration should persist the created dataset in the supplied repository."""
     asset = StorageAsset(
         reference="sample/sales.csv",
         name="sales",
@@ -67,12 +94,12 @@ def test_register_uses_injected_registry() -> None:
         size_bytes=24,
         sha256="b" * 64,
     )
-    registry = DatasetRegistry()
-    service = DatasetService(FakeStorageProvider(asset), registry)
+    repository = FakeDatasetRepository()
+    service = DatasetService(FakeStorageProvider(asset), repository, provider_id="local")
 
     dataset = service.register(asset.reference)
 
-    assert registry.get(dataset.id) == dataset
+    assert repository.get(dataset.id) == dataset
     assert service.list() == [dataset]
 
 
@@ -94,7 +121,9 @@ def test_register_propagates_storage_errors() -> None:
             """Raise the expected missing-asset exception."""
             raise StorageAssetNotFoundError(reference)
 
-    service = DatasetService(MissingStorageProvider(asset))
+    service = DatasetService(
+        MissingStorageProvider(asset), FakeDatasetRepository(), provider_id="local"
+    )
 
     with pytest.raises(StorageAssetNotFoundError):
         service.register(asset.reference)
@@ -110,7 +139,9 @@ def test_get_raises_for_unknown_dataset() -> None:
         size_bytes=24,
         sha256="d" * 64,
     )
-    service = DatasetService(FakeStorageProvider(asset))
+    service = DatasetService(
+        FakeStorageProvider(asset), FakeDatasetRepository(), provider_id="local"
+    )
 
     with pytest.raises(DatasetNotFoundError):
         service.get(uuid4())

@@ -10,7 +10,7 @@ class InvalidStorageReferenceError(ValueError):
 
 
 class DatasetNotFoundError(LookupError):
-    """Raised when a requested dataset is absent from the registry."""
+    """Raised when a requested dataset is absent from the dataset repository."""
 
 
 class CSVLoadError(ValueError):

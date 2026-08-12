@@ -5,6 +5,7 @@
 from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
+from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
@@ -12,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from packages.core.application import create_application
 from packages.domains.dataset.service import DatasetService
+from packages.persistence.sqlite_dataset_repository import SQLiteDatasetRepository
 from packages.services.dataset_profiling_service import DatasetProfilingService
 from packages.services.dataset_query_service import DatasetQueryService
 from packages.storage.blob.local import LocalStorageProvider
@@ -24,7 +26,9 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
     storage_root.mkdir()
     app = create_application()
     storage_provider = LocalStorageProvider(storage_root)
-    dataset_service = DatasetService(storage_provider)
+    repository = SQLiteDatasetRepository(tmp_path / "catalog.sqlite3")
+    dataset_service = DatasetService(storage_provider, repository, provider_id="local")
+    app.state.dataset_repository = repository
     app.state.dataset_service = dataset_service
     app.state.dataset_profiling_service = DatasetProfilingService(
         dataset_service,
@@ -137,6 +141,70 @@ def test_get_dataset_returns_registered_dataset(client: TestClient, tmp_path: Pa
 
     assert response.status_code == 200
     assert response.json() == registration.json()
+
+
+def test_registered_dataset_survives_application_restart_for_profile_and_query(
+    tmp_path: Path,
+) -> None:
+    """A persisted Dataset UUID must remain usable by profile and query services after restart."""
+    storage_root = tmp_path / "datasets"
+    catalog_path = tmp_path / "catalog.sqlite3"
+    asset_path = storage_root / "sample" / "sales.csv"
+    asset_path.parent.mkdir(parents=True)
+    asset_path.write_bytes(b"id,revenue\n1,42\n2,8\n")
+    reference = "sample/../sample/sales.csv"
+
+    first_app = create_application()
+    first_storage_provider = LocalStorageProvider(storage_root)
+    first_repository = SQLiteDatasetRepository(catalog_path)
+    first_dataset_service = DatasetService(
+        first_storage_provider,
+        first_repository,
+        provider_id="local",
+    )
+    first_app.state.dataset_repository = first_repository
+    first_app.state.dataset_service = first_dataset_service
+    first_app.state.dataset_profiling_service = DatasetProfilingService(
+        first_dataset_service,
+        first_storage_provider,
+    )
+    first_app.state.dataset_query_service = DatasetQueryService(
+        first_dataset_service,
+        first_storage_provider,
+    )
+
+    with TestClient(first_app) as first_client:
+        registration = first_client.post("/api/v1/datasets", json={"reference": reference})
+
+    assert registration.status_code == 201
+    dataset_id = UUID(registration.json()["id"])
+
+    restarted_storage_provider = LocalStorageProvider(storage_root)
+    restarted_repository = SQLiteDatasetRepository(catalog_path)
+    restarted_repository.initialize()
+    restarted_dataset_service = DatasetService(
+        restarted_storage_provider,
+        restarted_repository,
+        provider_id="local",
+    )
+    profiling_service = DatasetProfilingService(
+        restarted_dataset_service,
+        restarted_storage_provider,
+    )
+    query_service = DatasetQueryService(
+        restarted_dataset_service,
+        restarted_storage_provider,
+    )
+
+    try:
+        restored = restarted_dataset_service.get(dataset_id)
+
+        assert restarted_dataset_service.list() == [restored]
+        assert restored.reference == reference
+        assert profiling_service.profile(dataset_id).summary.reference == reference
+        assert query_service.query(dataset_id, "SELECT * FROM dataset").row_count == 2
+    finally:
+        restarted_repository.close()
 
 
 def test_get_unknown_dataset_returns_not_found(client: TestClient) -> None:

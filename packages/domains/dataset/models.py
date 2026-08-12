@@ -12,6 +12,8 @@ class Dataset(BaseModel):
 
     id: UUID = Field(default_factory=uuid4)
 
+    provider_id: str
+
     name: str
 
     source_type: str

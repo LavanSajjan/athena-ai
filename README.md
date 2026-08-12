@@ -26,7 +26,7 @@ production data platform.
 | Application | FastAPI application factory with lifecycle support and system routes |
 | Configuration | Environment-driven, typed settings using Pydantic Settings |
 | Observability | Structured application logging configured with Loguru |
-| Datasets | Registration service and an in-memory dataset registry |
+| Datasets | Registration service and durable SQLite dataset catalog |
 | Storage | Provider-neutral `StorageProvider` protocol and local filesystem provider |
 | Integrity | Streaming SHA-256 hashing for local storage assets |
 | Loading | Provider-neutral CSV loader returning Polars DataFrames |
@@ -52,7 +52,7 @@ flowchart TB
     Client[Client or developer]
     API[FastAPI application]
     Config[Typed settings\nPydantic Settings]
-    Domain[Dataset domain\nDatasetService + DatasetRegistry]
+    Domain[Dataset domain\nDatasetService + DatasetRepository]
     Port[StorageProvider\nprotocol]
     Local[LocalStorageProvider]
     Files[(Local dataset files)]
@@ -141,6 +141,7 @@ storage root.
 | `PORT` | `8000` | Server bind port |
 | `LOG_LEVEL` | `INFO` | Configured log level |
 | `STORAGE_ROOT` | `datasets` | Root directory for local storage assets |
+| `DATASET_CATALOG_PATH` | `data/athena.sqlite3` | Durable SQLite dataset catalog |
 
 Environment-variable names are case-insensitive. Unknown variables are ignored.
 
@@ -177,8 +178,9 @@ uv run mypy .
 ## Working with datasets
 
 The current dataset workflow is service-oriented. A `DatasetService` combines a
-storage provider with an in-memory `DatasetRegistry`; registration inspects the
-referenced file, records its URI, size, extension, and SHA-256 digest.
+storage provider with a durable SQLite-backed dataset repository; registration
+inspects the referenced file, records its opaque retrieval reference, URI, size,
+extension, and SHA-256 digest.
 
 ```python
 from pathlib import Path
@@ -204,8 +206,9 @@ print(result.dataframe)
 ```
 
 The local provider rejects absolute references and references that resolve
-outside the configured storage root. Dataset registrations are process-local:
-they are not persisted and are lost when the application exits.
+outside the configured storage root. Dataset registrations are retained in the
+SQLite catalog configured by `DATASET_CATALOG_PATH` (default:
+`data/athena.sqlite3`) and survive application restart.
 
 ## Documentation
 
