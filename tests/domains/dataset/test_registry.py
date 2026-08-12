@@ -17,6 +17,7 @@ def test_registry_stores_and_retrieves_dataset() -> None:
     dataset = Dataset(
         name="sales",
         source_type="csv",
+        reference="sales.csv",
         asset_uri="file:///datasets/sales.csv",
         size_bytes=12,
     )
@@ -33,6 +34,7 @@ def test_registry_returns_none_for_unknown_dataset() -> None:
     dataset = Dataset(
         name="sales",
         source_type="csv",
+        reference="sales.csv",
         asset_uri="file:///datasets/sales.csv",
         size_bytes=12,
     )

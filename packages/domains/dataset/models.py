@@ -16,6 +16,8 @@ class Dataset(BaseModel):
 
     source_type: str
 
+    reference: str
+
     asset_uri: str
 
     size_bytes: int

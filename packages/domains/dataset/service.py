@@ -26,6 +26,7 @@ class DatasetService:
         dataset = Dataset(
             name=asset.name,
             source_type=asset.extension,
+            reference=asset.reference,
             asset_uri=asset.uri,
             size_bytes=asset.size_bytes,
             status=DatasetStatus.REGISTERED,

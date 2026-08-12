@@ -21,5 +21,9 @@ class ExcelLoadError(ValueError):
     """Raised when Excel content or Excel loader options cannot be parsed."""
 
 
+class UnsupportedDatasetFormatError(ValueError):
+    """Raised when Athena has no loader for a registered dataset format."""
+
+
 class QueryExecutionError(ValueError):
     """Raised when a query engine cannot execute a SQL statement."""

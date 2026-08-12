@@ -6,6 +6,7 @@ from apps.api.routes.v1.system import router as system_router
 from packages.config.settings import get_settings
 from packages.domains.dataset.service import DatasetService
 from packages.observability.logging import configure_logging
+from packages.services.dataset_profiling_service import DatasetProfilingService
 from packages.storage.blob.local import LocalStorageProvider
 
 
@@ -21,8 +22,12 @@ def create_application() -> FastAPI:
         lifespan=lifespan,
     )
 
-    app.state.dataset_service = DatasetService(
-        storage_provider=LocalStorageProvider(settings.storage_root)
+    storage_provider = LocalStorageProvider(settings.storage_root)
+    dataset_service = DatasetService(storage_provider=storage_provider)
+    app.state.dataset_service = dataset_service
+    app.state.dataset_profiling_service = DatasetProfilingService(
+        dataset_service=dataset_service,
+        storage_provider=storage_provider,
     )
 
     app.include_router(system_router)

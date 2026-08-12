@@ -49,6 +49,7 @@ def test_register_maps_storage_asset_to_dataset() -> None:
     assert provider.references == [asset.reference]
     assert dataset.name == asset.name
     assert dataset.source_type == asset.extension
+    assert dataset.reference == asset.reference
     assert dataset.asset_uri == asset.uri
     assert dataset.size_bytes == asset.size_bytes
     assert dataset.sha256 == asset.sha256
