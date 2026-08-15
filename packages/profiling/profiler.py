@@ -1,7 +1,12 @@
 """Vectorized, provider-independent profiling for tabular datasets."""
 
+from datetime import UTC, datetime
+from typing import Any
+from uuid import UUID
+
 import polars as pl
 
+from packages.domains.evidence.models import Evidence, EvidenceSource, EvidenceType
 from packages.loaders.models import TabularLoadResult
 from packages.profiling.models import (
     ColumnProfile,
@@ -38,6 +43,125 @@ class DatasetProfiler:
             data_quality=self._profile_data_quality(dataframe, column_profiles),
             recommendations=self._recommend(dataframe, column_profiles),
         )
+
+    def collect_evidence(
+        self,
+        dataset_id: UUID,
+        analysis_run_id: UUID,
+        result: ProfileResult,
+    ) -> tuple[Evidence, ...]:
+        """Translate an already-computed ``ProfileResult`` into Evidence items.
+
+        This is a pure translation layer: it reads only observations already
+        represented on ``ProfileResult`` and its contained models and emits
+        structured ``Evidence``. It performs no new dataframe analysis, makes no
+        semantic interpretation, and does not persist evidence. The caller owns
+        ``analysis_run_id`` generation and evidence recording.
+        """
+        # One timestamp bounds the whole invocation so the emitted batch is
+        # identifiable as a single, coherent observation pass.
+        created_at = datetime.now(UTC)
+        producer = "profiler.v1"
+        row_count = result.summary.row_count
+        date_dimensions = set(result.recommendations.date_dimensions)
+
+        evidence: list[Evidence] = []
+
+        def emit(
+            evidence_type: EvidenceType,
+            details: dict[str, Any],
+            description: str,
+            column_name: str | None,
+        ) -> None:
+            evidence.append(
+                Evidence.create(
+                    dataset_id=dataset_id,
+                    analysis_run_id=analysis_run_id,
+                    evidence_type=evidence_type,
+                    source=EvidenceSource.SYSTEM,
+                    producer=producer,
+                    details=details,
+                    description=description,
+                    created_at=created_at,
+                    column_name=column_name,
+                )
+            )
+
+        # Dataset-level: duplication applies to the whole table.
+        emit(
+            EvidenceType.DUPLICATE_PATTERN,
+            {
+                "duplicate_row_count": result.data_quality.duplicate_row_count,
+                "duplicate_row_percentage": result.data_quality.duplicate_row_percentage,
+            },
+            f"Dataset contains {result.data_quality.duplicate_row_count} duplicate rows.",
+            None,
+        )
+
+        for column in result.columns:
+            emit(
+                EvidenceType.DATA_TYPE,
+                {"physical_type": column.data_type},
+                f"Column physical data type is {column.data_type}.",
+                column.name,
+            )
+            emit(
+                EvidenceType.NULL_RATE,
+                {
+                    "null_count": column.null_count,
+                    "row_count": row_count,
+                    "null_percentage": column.null_percentage,
+                },
+                f"Column has {column.null_count} null values.",
+                column.name,
+            )
+            emit(
+                EvidenceType.CARDINALITY,
+                {
+                    "distinct_count": column.distinct_count,
+                    "row_count": row_count,
+                    "distinct_percentage": column.distinct_percentage,
+                },
+                f"Column has {column.distinct_count} distinct values.",
+                column.name,
+            )
+            # Uniqueness is a positive observation only: distinct values must
+            # cover every row (which also implies zero nulls). It is vacuous for
+            # an empty table and never emitted in the negative case.
+            if row_count > 0 and column.distinct_count == row_count:
+                emit(
+                    EvidenceType.UNIQUENESS,
+                    {
+                        "distinct_count": column.distinct_count,
+                        "row_count": row_count,
+                        "is_unique": True,
+                    },
+                    "Column is unique across all rows.",
+                    column.name,
+                )
+            # NAME_PATTERN is driven solely by the column-name heuristic; no
+            # evidence is emitted for columns that do not match it.
+            pattern = self._identifier_pattern(column.name)
+            if pattern is not None:
+                emit(
+                    EvidenceType.NAME_PATTERN,
+                    {"matched_pattern": pattern},
+                    "Column name matches the profiler's identifier-name heuristic.",
+                    column.name,
+                )
+            # TEMPORAL_PATTERN is emitted only for native date/datetime physical
+            # types (i.e. observations already surfaced as date dimensions).
+            # Numeric values that merely resemble a date serial are never treated
+            # as temporal here — that requires a separate value-range producer.
+            if column.name in date_dimensions:
+                emit(
+                    EvidenceType.TEMPORAL_PATTERN,
+                    {"physical_type": column.data_type},
+                    f"Column physical type is {column.data_type}, a native temporal type.",
+                    column.name,
+                )
+
+        return tuple(evidence)
 
     def _profile_columns(self, dataframe: pl.DataFrame) -> tuple[ColumnProfile, ...]:
         """Compute null and distinct metrics for every column in one Polars query."""
@@ -166,6 +290,23 @@ class DatasetProfiler:
             normalized in self._IDENTIFIER_NAMES
             or normalized.endswith(self._IDENTIFIER_SUFFIXES)
         )
+
+    def _identifier_pattern(self, name: str) -> str | None:
+        """Return a descriptor for the identifier-name signal, or ``None``.
+
+        Applies the same name-set and suffix-set convention as
+        :meth:`_is_identifier_name`, returning a human-readable label for the
+        matched rule so ``NAME_PATTERN`` evidence can record *which* signal
+        applied. Returns ``None`` when no identifier-name signal matches — no
+        negative evidence is emitted for that case.
+        """
+        normalized = name.strip().lower()
+        if normalized in self._IDENTIFIER_NAMES:
+            return f"name:{normalized}"
+        for suffix in self._IDENTIFIER_SUFFIXES:
+            if normalized.endswith(suffix):
+                return f"suffix:{suffix}"
+        return None
 
     def _is_integer(self, data_type: pl.DataType) -> bool:
         """Return whether a Polars data type represents an integer surrogate key."""
