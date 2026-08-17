@@ -1120,7 +1120,17 @@ speculative infrastructure beyond what the step itself requires.
   `IDENTIFIER` + `HIGH`.
 - Native date/datetime `DATA_TYPE` evidence → `TEMPORAL`.
 - Low-cardinality string column → `CATEGORICAL`.
-- Numeric, non-identifier column → `MEASURE`.
+- Numeric, non-identifier column with sufficient evidence of measure
+  semantics → `MEASURE`. Numeric representations that are potentially
+  ambiguous with an unsupported semantic type remain `UNKNOWN` +
+  `Confidence.insufficient()` until the corresponding evidence producer
+  exists.
+- Float64 temporal representations are an explicit example: a numeric
+  column such as `Date` whose values may represent an encoded temporal
+  representation must not be classified as `TEMPORAL` or `MEASURE` solely
+  from its `DATA_TYPE`. Without `TEMPORAL_PATTERN` or equivalent
+  representation evidence, it remains `UNKNOWN` +
+  `Confidence.insufficient()`. See Section 10.
 - No applicable evidence → `UNKNOWN` + `Confidence.insufficient()`, never a
   fabricated low score.
 - `alternative_interpretations` populated when a second type is plausible.
